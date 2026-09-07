@@ -887,3 +887,105 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+.comment-hint,
+.comment-selection-error {
+  margin: 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.comment-selection-error { color: var(--danger); }
+.user-comment {
+  width: 100%;
+  min-width: 0;
+  padding: 12px 14px;
+  border-block: 1px solid var(--line-strong);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-subtle);
+  color: var(--ink);
+  font: 12px/1.5 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.user-comment-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.user-comment strong { font-size: 11px; }
+.user-comment p { margin: 8px 0 0; white-space: pre-wrap; }
+.comment-editor label { display: block; }
+.comment-editor textarea,
+.copy-fallback textarea {
+  display: block;
+  width: 100%;
+  min-height: 90px;
+  max-height: 35dvh;
+  resize: vertical;
+  margin: 8px 0;
+  padding: 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.comment-editor textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.comment-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.comment-actions button,
+.copy-fallback button {
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 5px 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  cursor: pointer;
+}
+.comment-actions button:hover:not(:disabled) { background: var(--selection); }
+.comment-actions button:disabled { opacity: .4; cursor: default; }
+.comment-actions .delete-comment { color: var(--danger); }
+.comment-export {
+  position: fixed;
+  z-index: 30;
+  right: 24px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 28px);
+  padding: 7px 7px 7px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 6px 30px rgb(0 0 0 / .2);
+}
+.copy-status { color: var(--ink-soft); font-size: 11px; }
+.copy-instructions {
+  padding: 10px 13px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--ink);
+  color: var(--canvas);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.copy-fallback {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: min(460px, calc(100vw - 28px));
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+}
+.copy-fallback textarea { min-height: 180px; }
+/* Leave room to scroll the last code line above the floating export control. */
+body:has(.comment-export) .part-diff-stage { padding-bottom: 78px; }
+@media (max-width: 760px) {
+  .comment-export { right: 14px; gap: 8px; }
+  body:has(.comment-export) .review-main { padding-bottom: 80px; }
+}

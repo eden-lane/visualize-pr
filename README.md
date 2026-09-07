@@ -14,13 +14,16 @@ A prebuilt generator turns review JSON into a standalone local executable. **Gen
 - Tabbed change sets: one active review section, with keyboard navigation and direct links.
 - A compact explanation column beside an editor frame combining the file tree and exact diff fragments.
 - Evidence-backed explanations, with inferred and unknown rationale labeled.
-- Read-only inline notes with previous/next navigation.
+- Generated inline review notes with previous/next navigation.
+- Add, edit, and delete your own comments on a code line or range; copy all comments as instructions for an agent, including paths and old/new line coordinates.
 - Unified and split diffs, local Hasklig fonts, and Ayu syntax themes.
 - Automatic light/dark mode that follows the browser preference; manual switching lasts until reload.
 - A responsive layout with independently scrolling descriptions, file trees, and diffs; file selection is remembered per tab.
 - A local server bound to `127.0.0.1`, with a free port selected automatically.
 
 This is an aid to review, not a correctness or security verdict. Generated executables contain the supplied PR code and explanations; share them with the same care as the source repository.
+
+Click a diff line number to add a comment. Drag across line numbers or Shift-click another number to select an inclusive range on the same diff side. Saved comments have Edit and Delete controls. Once a comment exists, the floating **Copy instructions for agent** button copies all your comments across files and tabs. Comments remain available while the page is open; reloading or closing it clears them. Generated notes are not included in the copied instructions.
 
 ## Install the skill
 
@@ -91,7 +94,7 @@ dist/visualize-pr-darwin-arm64 \
 work/demo-review
 ```
 
-Use the matching binary name for your platform. To test the skill launcher before publication, place that binary in `skills/visualize-pr/bin/v0.1.0/` with the same filename; this cache is ignored by Git. Browser validation should cover file selection, inline notes, both diff layouts, narrow screens, and automatic and manual theme changes.
+Use the matching binary name for your platform. To test the skill launcher before publication, place that binary in `skills/visualize-pr/bin/v0.1.0/` with the same filename; this cache is ignored by Git. Browser validation should cover file selection, inline notes, comment creation/editing/deletion, range selection, copied instructions, both diff layouts, narrow screens, and automatic and manual theme changes.
 
 ## Repository layout
 

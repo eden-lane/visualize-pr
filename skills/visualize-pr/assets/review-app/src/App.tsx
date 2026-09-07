@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { DiffLineAnnotation, FileDiffOptions } from '@pierre/diffs';
+import { parsePatchFiles, type DiffLineAnnotation, type FileDiffOptions, type SelectedLineRange } from '@pierre/diffs';
 import { PatchDiff } from '@pierre/diffs/react';
 import {
   themeToTreeStyles,
@@ -18,6 +18,8 @@ import {
   useFileTreeSelection,
 } from '@pierre/trees/react';
 import { review } from './review';
+import { CommentEditor, CommentsProvider, InlineUserComment, useComments } from './ReviewComments';
+import { commentTarget, type CommentTarget, type UserComment } from './comments';
 import { scrollbarStyles } from './scrollbars';
 import type {
   FileStatus,
@@ -33,6 +35,7 @@ const partFromHash = () => orderedParts.find((part) => window.location.hash === 
 type DiffStyle = 'unified' | 'split';
 type Theme = 'light' | 'dark';
 type ReviewAnnotationMetadata = Omit<ReviewAnnotation, 'side' | 'lineNumber'>;
+type InlineMetadata = ReviewAnnotationMetadata | { type: 'user'; comment: UserComment } | { type: 'draft'; target: CommentTarget };
 
 const fileTreeDecorationStyles = `
   [data-item-section="decoration"] > span:not(:empty) {
@@ -289,19 +292,40 @@ function ChangeDiff({
   scrollContainerRef,
 }: {
   change: ReviewChange;
-  options: FileDiffOptions<ReviewAnnotationMetadata>;
+  options: FileDiffOptions<InlineMetadata>;
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const annotations = useMemo(() => change.annotations ?? [], [change.annotations]);
   const [activeAnnotationIndex, setActiveAnnotationIndex] = useState(0);
   const annotationElements = useRef(new Map<string, HTMLElement>());
-  const lineAnnotations = useMemo(
-    () => annotations.map(({ side, lineNumber, ...metadata }) => ({
-      side,
-      lineNumber,
-      metadata,
-    })),
-    [annotations],
+  const { comments, save } = useComments();
+  const [selection, setSelection] = useState<SelectedLineRange | null>(null);
+  const [draft, setDraft] = useState<CommentTarget | null>(null);
+  const [selectionError, setSelectionError] = useState('');
+  const oldPath = useMemo(() => change.patch ? parsePatchFiles(change.patch)[0]?.files[0]?.prevName : undefined, [change.patch]);
+  const openComment = useCallback((range: SelectedLineRange | null) => {
+    setSelection(range);
+    const target = range ? commentTarget(range) : null;
+    setSelectionError(range && !target ? 'Select lines on one side of the diff at a time (Old or New).' : '');
+    setDraft(target);
+  }, []);
+  const closeDraft = () => { setDraft(null); setSelection(null); };
+  const commentOptions = useMemo<FileDiffOptions<InlineMetadata>>(() => ({
+    ...options,
+    enableLineSelection: true,
+    enableGutterUtility: true,
+    onLineSelectionEnd: openComment,
+    onGutterUtilityClick: openComment,
+  }), [options, openComment]);
+  const lineAnnotations = useMemo<DiffLineAnnotation<InlineMetadata>[]>(
+    () => [
+      ...annotations.map(({ side, lineNumber, ...metadata }) => ({ side, lineNumber, metadata })),
+      ...comments.filter((comment) => comment.changeId === change.id).map((comment) => ({
+        side: comment.side, lineNumber: comment.end, metadata: { type: 'user' as const, comment },
+      })),
+      ...(draft ? [{ side: draft.side, lineNumber: draft.end, metadata: { type: 'draft' as const, target: draft } }] : []),
+    ],
+    [annotations, comments, change.id, draft],
   );
   const registerAnnotationElement = useCallback(
     (id: string, element: HTMLElement | null) => {
@@ -373,18 +397,29 @@ function ChangeDiff({
           </span>
         </div>
       </div>
+      {change.patch && <p className="comment-hint">Click a line number to comment. Drag or Shift-click for a range. Comments stay available while this review is open.</p>}
+      {selectionError && <p className="comment-selection-error" role="alert">{selectionError}</p>}
       {change.patch ? (
         <PatchDiff
           patch={change.patch}
-          options={options}
+          options={commentOptions}
+          selectedLines={selection}
           lineAnnotations={lineAnnotations}
           renderAnnotation={(annotation) => {
+            const metadata = annotation.metadata;
+            if ('type' in metadata) {
+              if (metadata.type === 'user') return <InlineUserComment key={metadata.comment.id} comment={metadata.comment} />;
+              return <CommentEditor key="draft" target={metadata.target} onCancel={closeDraft} onSave={(body) => {
+                save({ id: crypto.randomUUID(), changeId: change.id, path: change.path, oldPath, ...metadata.target, body });
+                closeDraft();
+              }} />;
+            }
             const index = annotations.findIndex(
-              (item) => item.id === annotation.metadata.id,
+              (item) => item.id === metadata.id,
             );
             return (
               <InlineReviewNote
-                annotation={annotation}
+                annotation={{ ...annotation, metadata }}
                 active={index === activeAnnotationIndex}
                 position={index + 1}
                 total={annotations.length}
@@ -414,7 +449,7 @@ function PartSection({
   part: ReviewPart;
   total: number;
   theme: Theme;
-  options: FileDiffOptions<ReviewAnnotationMetadata>;
+  options: FileDiffOptions<InlineMetadata>;
   selectedPath: string;
   onSelect: (path: string) => void;
 }) {
@@ -498,6 +533,10 @@ function PartSection({
 }
 
 export function App() {
+  return <CommentsProvider><ReviewApp /></CommentsProvider>;
+}
+
+function ReviewApp() {
   const [activePartId, setActivePartId] = useState(partFromHash);
   const activePart = orderedParts.find((part) => part.id === activePartId) ?? orderedParts[0];
   const [selectedPaths, setSelectedPaths] = useState<Record<string, string>>({});
@@ -541,7 +580,7 @@ export function App() {
     document.documentElement.style.colorScheme = theme;
   }, [theme]);
 
-  const diffOptions = useMemo<FileDiffOptions<ReviewAnnotationMetadata>>(() => ({
+  const diffOptions = useMemo<FileDiffOptions<InlineMetadata>>(() => ({
     theme: { dark: 'ayu-dark', light: 'ayu-light' },
     themeType: theme,
     diffStyle,
