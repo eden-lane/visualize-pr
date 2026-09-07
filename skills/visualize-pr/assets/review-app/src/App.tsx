@@ -540,6 +540,27 @@ function ReviewApp() {
   const [activePartId, setActivePartId] = useState(partFromHash);
   const activePart = orderedParts.find((part) => part.id === activePartId) ?? orderedParts[0];
   const [selectedPaths, setSelectedPaths] = useState<Record<string, string>>({});
+  const tabStripRef = useRef<HTMLElement>(null);
+  const [hiddenTabs, setHiddenTabs] = useState({ left: false, right: false });
+  useLayoutEffect(() => {
+    const strip = tabStripRef.current;
+    if (!strip) return;
+    const updateEdges = () => {
+      const left = strip.scrollLeft > 1;
+      const right = strip.scrollWidth - strip.clientWidth - strip.scrollLeft > 1;
+      setHiddenTabs((previous) => previous.left === left && previous.right === right
+        ? previous : { left, right });
+    };
+    const observer = new ResizeObserver(updateEdges);
+    observer.observe(strip);
+    for (const tab of strip.children) observer.observe(tab);
+    strip.addEventListener('scroll', updateEdges, { passive: true });
+    updateEdges();
+    return () => {
+      observer.disconnect();
+      strip.removeEventListener('scroll', updateEdges);
+    };
+  }, []);
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const selectPart = (id: string) => {
     setActivePartId(id);
@@ -654,7 +675,8 @@ function ReviewApp() {
           </details>
         </section>
 
-        <nav className="review-map" role="tablist" aria-label="Logical change sets">
+        <div className="review-map-frame" data-hidden-left={hiddenTabs.left} data-hidden-right={hiddenTabs.right}>
+        <nav ref={tabStripRef} className="review-map" role="tablist" aria-label="Logical change sets">
           {orderedParts.map((part, index) => (
             <button
               key={part.id}
@@ -683,6 +705,7 @@ function ReviewApp() {
             </button>
           ))}
         </nav>
+        </div>
 
         <div className="parts-list">
             <PartSection
