@@ -4,6 +4,9 @@ import { dirname, join, resolve } from 'node:path';
 const root = resolve(import.meta.dir, '..');
 const app = join(root, 'skills/visualize-pr/assets/review-app');
 await mkdir(join(root, 'work'), { recursive: true });
+// A compiled generator cannot safely reuse itself as the Linux compiler runtime.
+// Embed a pristine copy so generating reviews stays offline and self-contained.
+await Bun.write(join(root, 'work/bun-runtime.gz'), Bun.gzipSync(await Bun.file(process.execPath).arrayBuffer()));
 const browser = await Bun.build({
   entrypoints: [join(app, 'index.html')],
   target: 'browser', minify: true, outdir: join(root, 'work/browser'),

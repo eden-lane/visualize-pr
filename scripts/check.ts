@@ -55,12 +55,24 @@ try {
   await rm(input, { recursive: true });
   server = Bun.spawn([output], { cwd: isolated, env, stdout: 'pipe', stderr: 'pipe' });
   const reader = (server.stdout as ReadableStream<Uint8Array>).getReader();
+  // Drain stderr while starting so a failed executable cannot block on a full pipe.
+  const stderr = new Response(server.stderr as ReadableStream<Uint8Array>).text();
   const timer = setTimeout(() => server?.kill(), 15000);
   try {
-    const { value } = await reader.read();
-    const message = new TextDecoder().decode(value);
-    const url = /http:\/\/127\.0\.0\.1:\d+\//.exec(message)?.[0];
-    assert(url, `Missing local URL: ${message}`);
+    const decoder = new TextDecoder();
+    let message = '';
+    let url: string | undefined;
+    while (!url) {
+      const { value, done } = await reader.read();
+      message += decoder.decode(value, { stream: !done });
+      url = /http:\/\/127\.0\.0\.1:\d+\//.exec(message)?.[0];
+      if (done) break;
+    }
+    if (!url) {
+      server.kill();
+      const exitCode = await server.exited;
+      throw new Error(`Missing local URL (exit ${exitCode}, signal ${server.signalCode ?? 'none'}).\nstdout:\n${message}\nstderr:\n${await stderr}`);
+    }
     const response = await fetch(url);
     assert.equal(response.status, 200);
     const html = await response.text();

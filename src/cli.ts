@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import assets from '../work/browser-assets.json';
+import runtimeArchive from '../work/bun-runtime.gz' with { type: 'file' };
 import { validateReview } from './validate';
 
 async function main() {
@@ -42,7 +43,11 @@ const server = Bun.serve({ hostname: '127.0.0.1', port, fetch(request) {
 console.log('Review map: ' + server.url);
 `);
     const compiled = join(scratch, 'pr-review-map');
-    const result = await Bun.build({ entrypoints: [entry], minify: true, compile: { outfile: compiled } });
+    // Bun 1.4.0 produces a crashing Linux binary when a compiled executable
+    // uses itself as the runtime template. Compile against the embedded original.
+    const executablePath = join(scratch, 'bun-runtime');
+    await Bun.write(executablePath, Bun.gunzipSync(await Bun.file(runtimeArchive).arrayBuffer()));
+    const result = await Bun.build({ entrypoints: [entry], minify: true, compile: { outfile: compiled, executablePath } });
     if (!result.success) throw new Error(result.logs.map(String).join('\n'));
     if (process.platform === 'darwin') {
       const signed = Bun.spawnSync(['/usr/bin/codesign', '--force', '--sign', '-', compiled]);
