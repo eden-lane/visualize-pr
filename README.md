@@ -11,12 +11,13 @@ A prebuilt generator turns review JSON into a standalone local executable. **Gen
 
 ## Features
 
-- Logical review sections with their own file trees and exact patch fragments.
+- Tabbed change sets: one active review section, with keyboard navigation and direct links.
+- A compact explanation column beside an editor frame combining the file tree and exact diff fragments.
 - Evidence-backed explanations, with inferred and unknown rationale labeled.
 - Read-only inline notes with previous/next navigation.
 - Unified and split diffs, local Hasklig fonts, and Ayu syntax themes.
 - Automatic light/dark mode that follows the browser preference; manual switching lasts until reload.
-- A responsive layout with independently scrolling trees and diffs.
+- A responsive layout with independently scrolling descriptions, file trees, and diffs; file selection is remembered per tab.
 - A local server bound to `127.0.0.1`, with a free port selected automatically.
 
 This is an aid to review, not a correctness or security verdict. Generated executables contain the supplied PR code and explanations; share them with the same care as the source repository.

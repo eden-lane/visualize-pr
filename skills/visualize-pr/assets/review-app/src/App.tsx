@@ -18,6 +18,7 @@ import {
   useFileTreeSelection,
 } from '@pierre/trees/react';
 import { review } from './review';
+import { scrollbarStyles } from './scrollbars';
 import type {
   FileStatus,
   ReviewAnnotation,
@@ -27,6 +28,7 @@ import type {
 } from './types';
 
 const orderedParts = [...review.parts].sort((left, right) => left.order - right.order);
+const partFromHash = () => orderedParts.find((part) => window.location.hash === `#part-${part.id}`)?.id ?? orderedParts[0].id;
 
 type DiffStyle = 'unified' | 'split';
 type Theme = 'light' | 'dark';
@@ -162,7 +164,7 @@ function PartFileTree({
     initialSelectedPaths: selectedPath ? [selectedPath] : [],
     renderRowDecoration,
     search: false,
-    unsafeCSS: fileTreeDecorationStyles,
+    unsafeCSS: fileTreeDecorationStyles + scrollbarStyles,
   });
   const selectedPaths = useFileTreeSelection(model);
   const treeTheme = useMemo(() => {
@@ -214,7 +216,7 @@ function PartFileTree({
         className="part-file-tree"
         style={{
           ...treeTheme,
-          height: `${Math.min(Math.max(paths.length * 30 + 18, 84), 260)}px`,
+          height: '100%',
           '--trees-selected-bg-override': 'var(--selection)',
           '--trees-border-color-override': 'var(--line)',
           '--trees-fg-override': 'var(--ink)',
@@ -406,43 +408,23 @@ function PartSection({
   total,
   theme,
   options,
+  selectedPath,
+  onSelect,
 }: {
   part: ReviewPart;
   total: number;
   theme: Theme;
   options: FileDiffOptions<ReviewAnnotationMetadata>;
+  selectedPath: string;
+  onSelect: (path: string) => void;
 }) {
-  const [selectedPath, setSelectedPath] = useState(
-    part.changes.find((change) => change.annotations?.length)?.path
-      ?? part.changes[0]?.path
-      ?? '',
-  );
-  const storyRef = useRef<HTMLDivElement>(null);
   const diffStageRef = useRef<HTMLDivElement>(null);
   const selectedChange = part.changes.find((change) => change.path === selectedPath)
     ?? part.changes[0];
 
-  useLayoutEffect(() => {
-    const story = storyRef.current;
-    const diffStage = diffStageRef.current;
-    if (!story || !diffStage) return;
-
-    const syncPreviewHeight = () => {
-      diffStage.style.setProperty(
-        '--part-preview-height',
-        `${Math.ceil(story.getBoundingClientRect().height)}px`,
-      );
-    };
-
-    syncPreviewHeight();
-    const observer = new ResizeObserver(syncPreviewHeight);
-    observer.observe(story);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section id={`part-${part.id}`} className="part-section">
-      <div ref={storyRef} className="part-story">
+    <section id={`part-${part.id}`} className="part-section" role="tabpanel" aria-labelledby={`tab-${part.id}`} tabIndex={0}>
+      <div className="part-story">
         <div className="part-kicker">
           {String(part.order).padStart(2, '0')} / {String(total).padStart(2, '0')}
         </div>
@@ -462,13 +444,6 @@ function PartSection({
             <p>{part.whyThisApproach}</p>
           </div>
         </div>
-
-        <PartFileTree
-          changes={part.changes}
-          selectedPath={selectedChange?.path ?? ''}
-          theme={theme}
-          onSelect={setSelectedPath}
-        />
 
         <details className="review-notes">
           <summary>Review focus and evidence</summary>
@@ -498,23 +473,54 @@ function PartSection({
         </details>
       </div>
 
-      <div ref={diffStageRef} className="part-diff-stage">
-        {selectedChange ? (
-          <ChangeDiff
-            key={selectedChange.path}
-            change={selectedChange}
-            options={options}
-            scrollContainerRef={diffStageRef}
-          />
-        ) : (
-          <div className="empty-diff">No textual change is assigned to this part.</div>
-        )}
+      <div className="part-editor" aria-label="Change set editor">
+        <PartFileTree
+          changes={part.changes}
+          selectedPath={selectedChange?.path ?? ''}
+          theme={theme}
+          onSelect={onSelect}
+        />
+        <div ref={diffStageRef} className="part-diff-stage">
+          {selectedChange ? (
+            <ChangeDiff
+              key={selectedChange.path}
+              change={selectedChange}
+              options={options}
+              scrollContainerRef={diffStageRef}
+            />
+          ) : (
+            <div className="empty-diff">No textual change is assigned to this part.</div>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
 export function App() {
+  const [activePartId, setActivePartId] = useState(partFromHash);
+  const activePart = orderedParts.find((part) => part.id === activePartId) ?? orderedParts[0];
+  const [selectedPaths, setSelectedPaths] = useState<Record<string, string>>({});
+  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const selectPart = (id: string) => {
+    setActivePartId(id);
+    if (window.location.hash !== `#part-${id}`) window.history.pushState(null, '', `#part-${id}`);
+  };
+  useLayoutEffect(() => {
+    // Scroll only the tab strip; changing a tab must not move the page.
+    const tab = tabRefs.current.get(activePart.id);
+    const strip = tab?.parentElement;
+    if (!tab || !strip) return;
+    const tabBounds = tab.getBoundingClientRect();
+    const stripBounds = strip.getBoundingClientRect();
+    if (tabBounds.left < stripBounds.left) strip.scrollLeft += tabBounds.left - stripBounds.left;
+    else if (tabBounds.right > stripBounds.right) strip.scrollLeft += tabBounds.right - stripBounds.right;
+  }, [activePart.id]);
+  useEffect(() => {
+    const syncPart = () => setActivePartId(partFromHash());
+    window.addEventListener('hashchange', syncPart);
+    return () => window.removeEventListener('hashchange', syncPart);
+  }, []);
   const [diffStyle, setDiffStyle] = useState<DiffStyle>('unified');
   const [systemTheme, setSystemTheme] = useState<Theme>(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
@@ -544,10 +550,12 @@ export function App() {
     hunkSeparators: 'metadata',
     overflow: 'scroll',
     lineDiffType: 'word-alt',
+    unsafeCSS: scrollbarStyles,
   }), [diffStyle, theme]);
 
   return (
     <div className="app-shell">
+      <style>{scrollbarStyles}</style>
       <header className="topbar">
         <a className="repository" href={review.source.url} target="_blank" rel="noreferrer">
           <span className="repository-mark" aria-hidden="true">R</span>
@@ -607,25 +615,46 @@ export function App() {
           </details>
         </section>
 
-        <nav className="review-map" aria-label="Logical change sets">
-          {orderedParts.map((part) => (
-            <a key={part.id} href={`#part-${part.id}`}>
+        <nav className="review-map" role="tablist" aria-label="Logical change sets">
+          {orderedParts.map((part, index) => (
+            <button
+              key={part.id}
+              ref={(element) => { if (element) tabRefs.current.set(part.id, element); else tabRefs.current.delete(part.id); }}
+              id={`tab-${part.id}`}
+              type="button"
+              role="tab"
+              aria-selected={activePart.id === part.id}
+              aria-controls={`part-${part.id}`}
+              tabIndex={activePart.id === part.id ? 0 : -1}
+              onClick={() => selectPart(part.id)}
+              onKeyDown={(event) => {
+                const next = event.key === 'ArrowRight' ? (index + 1) % orderedParts.length
+                  : event.key === 'ArrowLeft' ? (index - 1 + orderedParts.length) % orderedParts.length
+                  : event.key === 'Home' ? 0
+                  : event.key === 'End' ? orderedParts.length - 1 : null;
+                if (next === null) return;
+                event.preventDefault();
+                selectPart(orderedParts[next].id);
+                tabRefs.current.get(orderedParts[next].id)?.focus();
+              }}
+            >
               <span>{String(part.order).padStart(2, '0')}</span>
               {part.title}
-            </a>
+              <span className="tab-file-count">{part.changes.length}</span>
+            </button>
           ))}
         </nav>
 
         <div className="parts-list">
-          {orderedParts.map((part) => (
             <PartSection
-              key={part.id}
-              part={part}
+              key={activePart.id}
+              part={activePart}
               total={orderedParts.length}
               theme={theme}
               options={diffOptions}
+              selectedPath={selectedPaths[activePart.id] ?? activePart.changes.find((change) => change.annotations?.length)?.path ?? activePart.changes[0]?.path ?? ''}
+              onSelect={(path) => setSelectedPaths((paths) => ({ ...paths, [activePart.id]: path }))}
             />
-          ))}
         </div>
 
         <footer>

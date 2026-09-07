@@ -54,6 +54,8 @@
   --radius: 10px;
   --code-font: "Review Hasklig", Consolas, "Courier New", monospace;
   --code-ligatures: "liga" 1, "calt" 1, "dlig" 1;
+  --scrollbar-thumb: rgb(90 94 104 / 18%);
+  --scrollbar-thumb-hover: rgb(90 94 104 / 30%);
 }
 
 :root[data-theme="dark"] {
@@ -74,6 +76,8 @@
   --danger-soft: #35191b;
   --warning: #d1a85a;
   --warning-soft: #302719;
+  --scrollbar-thumb: rgb(175 180 190 / 18%);
+  --scrollbar-thumb-hover: rgb(175 180 190 / 30%);
 }
 
 * {
@@ -82,14 +86,12 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 76px;
-  scroll-snap-type: y mandatory;
   background: var(--canvas);
 }
 
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 280px;
   min-height: 100vh;
   background: var(--canvas);
   color: var(--ink);
@@ -121,7 +123,10 @@ p {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
@@ -135,13 +140,11 @@ p {
   gap: 24px;
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--canvas) 92%, transparent);
-  padding: 0 clamp(18px, 4vw, 64px);
+  padding: 0 24px;
+  flex: none;
   backdrop-filter: blur(16px);
 }
 
-.pr-intro {
-  scroll-snap-align: start;
-}
 
 .repository,
 .topbar-actions,
@@ -243,14 +246,20 @@ p {
 }
 
 .review-main {
-  width: min(1560px, calc(100% - clamp(32px, 8vw, 160px)));
-  margin: 0 auto;
-  padding: clamp(52px, 7vw, 104px) 0 42px;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 0;
 }
 
 .pr-intro {
-  max-width: 1100px;
-  margin-bottom: 36px;
+  flex: none;
+  min-height: 0;
+  max-height: 35dvh;
+  overflow: auto;
+  margin-bottom: 14px;
 }
 
 .pr-title-row {
@@ -263,7 +272,7 @@ p {
 h1 {
   max-width: 940px;
   margin-bottom: 10px;
-  font-size: clamp(30px, 3vw, 46px);
+  font-size: clamp(22px, 2vw, 30px);
   font-weight: 650;
   letter-spacing: -0.042em;
   line-height: 1.08;
@@ -299,7 +308,7 @@ h1 {
 .pr-context {
   max-width: 1100px;
   border-bottom: 1px solid var(--line);
-  margin-top: 24px;
+  margin-top: 8px;
 }
 
 .pr-context summary {
@@ -332,85 +341,74 @@ h1 {
 
 .review-map {
   display: flex;
-  max-width: 1100px;
-  gap: 20px;
-  border-top: 1px solid var(--line);
-  margin-bottom: 14px;
+  flex: none;
+  min-width: 0;
+  gap: 2px;
   overflow-x: auto;
-  padding: 16px 0;
-  scrollbar-width: none;
+  border-bottom: 1px solid var(--line);
 }
 
-.review-map::-webkit-scrollbar {
-  display: none;
-}
-
-.review-map a {
+.review-map button {
   display: inline-flex;
-  min-width: max-content;
-  align-items: baseline;
-  gap: 8px;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 13px 15px;
   color: var(--muted);
-  font-size: 11px;
-  text-decoration: none;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.review-map a:hover {
+.review-map button:hover { color: var(--ink); background: var(--surface-subtle); }
+.review-map button[aria-selected="true"] {
   color: var(--ink);
+  background: var(--surface);
+  border-bottom-color: var(--ink);
 }
-
-.review-map span {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 9px;
-}
+.review-map button:focus-visible { outline-offset: -3px; }
+.review-map span { font-family: var(--code-font); font-size: 10px; }
+.tab-file-count { padding: 2px 5px; border-radius: 4px; background: var(--selection); }
 
 .parts-list {
-  display: grid;
-  gap: clamp(80px, 10vw, 150px);
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding-top: 18px;
 }
 
 .part-section {
-  --part-top-padding: clamp(24px, 3vw, 40px);
   display: grid;
+  width: 100%;
   min-width: 0;
-  grid-template-columns: minmax(300px, 0.85fr) minmax(560px, 1.15fr);
-  gap: clamp(48px, 6vw, 104px);
-  scroll-snap-align: start;
-  scroll-snap-stop: normal;
-  border-top: 1px solid var(--line);
-  padding-top: var(--part-top-padding);
+  min-height: 0;
+  grid-template-columns: clamp(230px, 21vw, 300px) minmax(0, 1fr);
+  gap: 24px;
 }
 
-.part-story,
-.part-diff-stage {
+.part-story {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 12px;
 }
 
-@media (min-width: 821px) {
-  .part-section {
-    --part-viewport-bottom-gap: clamp(20px, 3dvh, 32px);
-    --part-content-max-height: calc(
-      100dvh - 76px - var(--part-top-padding) -
-        var(--part-viewport-bottom-gap) - 1px
-    );
-  }
-
-  .part-story {
-    display: flex;
-    max-height: var(--part-content-max-height);
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .part-files {
-    min-height: 96px;
-    flex: 1 1 auto;
-  }
-
+.part-editor {
+  display: grid;
+  grid-template-columns: clamp(190px, 18vw, 260px) minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .part-kicker {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
@@ -419,8 +417,8 @@ h1 {
 
 .part-story h2 {
   max-width: 620px;
-  margin-bottom: 24px;
-  font-size: clamp(24px, 2.2vw, 35px);
+  margin-bottom: 12px;
+  font-size: 23px;
   font-weight: 630;
   letter-spacing: -0.035em;
   line-height: 1.14;
@@ -428,10 +426,10 @@ h1 {
 
 .part-summary {
   max-width: 610px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
   color: var(--ink-soft);
-  font-size: clamp(15px, 1.25vw, 19px);
-  line-height: 1.68;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .part-explanation {
@@ -439,7 +437,7 @@ h1 {
   max-width: 610px;
   gap: 20px;
   border-top: 1px solid var(--line);
-  margin-bottom: 30px;
+  margin-bottom: 18px;
   padding-top: 20px;
 }
 
@@ -484,11 +482,11 @@ h1 {
 
 .part-files {
   display: flex;
-  max-width: 610px;
+  min-width: 0;
+  min-height: 0;
   flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border-right: 1px solid var(--line);
+  background: var(--surface-subtle);
   overflow: hidden;
 }
 
@@ -512,8 +510,8 @@ h1 {
 
 .part-file-tree {
   display: block;
-  min-height: 84px;
-  flex: 1 1 auto;
+  min-height: 0;
+  flex: 1 1 0;
   overflow: hidden;
   border: 0;
   background: transparent;
@@ -575,12 +573,13 @@ h1 {
 
 .review-notes-content {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   padding: 12px 2px 18px;
   color: var(--ink-soft);
   font-size: 10px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .review-notes-content strong {
@@ -605,21 +604,10 @@ h1 {
 .part-diff-stage {
   --diffs-font-family: var(--code-font);
   --diffs-font-features: var(--code-ligatures);
-  align-self: start;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: 0 24px 80px rgb(0 0 0 / 0.14);
-  height: min(
-    var(--part-preview-height, 86vh),
-    var(--part-content-max-height, 86vh)
-  );
-  height: min(
-    var(--part-preview-height, 86dvh),
-    86dvh,
-    var(--part-content-max-height, 86dvh)
-  );
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
+  background: var(--surface);
   scrollbar-gutter: stable;
 }
 
@@ -852,85 +840,50 @@ h1 {
 }
 
 footer {
-  padding: 60px 0 0;
+  flex: none;
+  padding: 12px 0;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.5;
 }
 
-@media (max-width: 1080px) {
-  .part-section {
-    grid-template-columns: minmax(280px, 0.8fr) minmax(460px, 1.2fr);
-    gap: 36px;
-  }
+@media (max-width: 1100px) {
+  .branch { display: none; }
+  .part-section { grid-template-columns: 220px minmax(0, 1fr); gap: 16px; }
+  .part-editor { grid-template-columns: 180px minmax(0, 1fr); }
+  .selected-file-meta { flex-wrap: wrap; gap: 8px; }
 }
 
-@media (max-width: 820px) {
-  html {
-    scroll-padding-top: 18px;
-  }
-
-  .topbar {
-    position: relative;
-  }
-
-  .branch {
-    display: none;
-  }
-
-  .review-main {
-    width: min(100% - 28px, 680px);
-    padding-top: 34px;
-  }
-
-  .pr-title-row {
-    display: grid;
-    gap: 18px;
-  }
-
-  .source-link {
-    justify-self: start;
-  }
-
-  .review-overview {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .part-section {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
-  }
-
-  .part-story h2,
-  .part-summary,
-  .part-explanation,
-  .part-files,
-  .review-notes {
-    max-width: none;
-  }
+@media (max-width: 760px) {
+  .app-shell { height: auto; min-height: 100dvh; overflow: visible; }
+  .topbar { padding: 0 14px; gap: 12px; }
+  .repository span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .repository-mark { display: none; }
+  .topbar-actions { flex: none; gap: 6px; }
+  .review-main { padding: 18px 14px 0; }
+  .pr-intro { max-height: none; overflow: visible; }
+  .pr-title-row { gap: 14px; }
+  .pr-meta { font-size: 10px; overflow-wrap: anywhere; }
+  .source-link { padding: 7px; }
+  .review-overview { grid-template-columns: 1fr; }
+  .review-map { position: sticky; top: 56px; z-index: 10; background: var(--canvas); }
+  .part-section { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .part-story { overflow: visible; padding-right: 0; }
+  .part-explanation { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .part-editor { height: 70dvh; min-height: 420px; grid-template-columns: 180px minmax(0, 1fr); }
 }
 
 @media (max-width: 520px) {
-  .repository span:last-child {
-    overflow: hidden;
-    max-width: 148px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .segmented-control button {
-    padding: 5px 7px;
-  }
-
-  .review-notes-content {
-    grid-template-columns: 1fr;
-  }
+  .pr-title-row { flex-direction: column; }
+  .segmented-control button { padding: 5px 7px; }
+  .part-explanation { grid-template-columns: minmax(0, 1fr); }
+  .part-editor { height: auto; grid-template-columns: minmax(0, 1fr); }
+  .part-files { height: 200px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .part-diff-stage { height: 65dvh; min-height: 320px; }
+  .change-heading { gap: 6px; padding: 10px; }
+  .change-heading-actions > .status { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-    scroll-snap-type: none;
-  }
+  html { scroll-behavior: auto; }
 }
