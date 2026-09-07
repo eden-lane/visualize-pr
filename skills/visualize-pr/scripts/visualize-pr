@@ -1,0 +1,45 @@
+#!/bin/sh
+# Use the local prebuilt binary, or fetch the pinned release on first use.
+set -eu
+skill_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repository='OWNER/visualize-pr'
+version='v0.1.0'
+case "$(uname -s)" in
+  Darwin) platform=darwin ;;
+  Linux) platform=linux ;;
+  *) echo 'Prebuilt generators currently support macOS and Linux.' >&2; exit 1 ;;
+esac
+case "$(uname -m)" in
+  arm64|aarch64) architecture=arm64 ;;
+  x86_64|amd64) architecture=x64 ;;
+  *) echo 'Unsupported architecture.' >&2; exit 1 ;;
+esac
+asset="visualize-pr-$platform-$architecture"
+binary="$skill_dir/bin/$version/$asset"
+if [ ! -x "$binary" ]; then
+  if [ "$repository" = 'OWNER/visualize-pr' ]; then
+    echo 'This checkout is not published yet. Build the generator with the maintainer commands in README.md.' >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname -- "$binary")"
+  download_dir=$(mktemp -d "$(dirname -- "$binary")/.download.XXXXXX")
+  trap 'rm -rf "$download_dir"' EXIT HUP INT TERM
+  base_url="https://github.com/$repository/releases/download/$version"
+  curl --fail --location --proto '=https' --tlsv1.2 "$base_url/$asset" -o "$download_dir/$asset"
+  curl --fail --location --proto '=https' --tlsv1.2 "$base_url/$asset.sha256" -o "$download_dir/$asset.sha256"
+  expected=$(awk 'NR == 1 { print $1 }' "$download_dir/$asset.sha256")
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual=$(sha256sum "$download_dir/$asset" | awk '{ print $1 }')
+  else
+    actual=$(shasum -a 256 "$download_dir/$asset" | awk '{ print $1 }')
+  fi
+  if [ "${#expected}" -ne 64 ] || [ "$actual" != "$expected" ]; then
+    echo 'Downloaded generator failed SHA-256 verification.' >&2
+    exit 1
+  fi
+  chmod +x "$download_dir/$asset"
+  mv "$download_dir/$asset" "$binary"
+  rm -rf "$download_dir"
+  trap - EXIT HUP INT TERM
+fi
+exec "$binary" "$@"

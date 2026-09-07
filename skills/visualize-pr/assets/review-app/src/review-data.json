@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-02T12:00:00Z",
+  "source": {
+    "repository": "acme-inc/request-service",
+    "number": 142,
+    "url": "https://github.com/acme-inc/request-service/pull/142",
+    "baseRef": "main",
+    "headRef": "feature/request-retries",
+    "headCommit": "72e9ca877b5cc8d9"
+  },
+  "pr": {
+    "title": "Add request client with retries and failure tests",
+    "author": "Alex Morgan",
+    "description": "Introduces a typed request boundary, applies retry behavior, and documents failure semantics in tests."
+  },
+  "summary": {
+    "overview": "The PR moves request policy into one typed client, connects it to the existing hook, and proves how terminal failures reach callers.",
+    "reviewStrategy": "Read the public contract first, then the runtime lifecycle, and finish with the tests that define its failure boundary.",
+    "risk": "Retry and cancellation behavior can subtly change request timing or duplicate non-idempotent work."
+  },
+  "files": [
+    {
+      "path": "src/api/client.ts",
+      "status": "modified",
+      "additions": 28,
+      "deletions": 6
+    },
+    {
+      "path": "src/hooks/useRequest.ts",
+      "status": "modified",
+      "additions": 15,
+      "deletions": 8
+    },
+    {
+      "path": "tests/request.test.ts",
+      "status": "modified",
+      "additions": 42,
+      "deletions": 2
+    },
+    {
+      "path": "package.json",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 0
+    }
+  ],
+  "parts": [
+    {
+      "id": "request-contract",
+      "order": 1,
+      "title": "Establish the request contract",
+      "summary": "Creates the stable boundary consumed by the hook and exercised by tests.",
+      "whatChanged": "The client now accepts typed options, applies explicit timeout and retry defaults, and normalizes terminal failures into RequestError.",
+      "whyThisApproach": "A transport-neutral contract keeps callers from depending directly on fetch details and gives tests one observable failure shape.",
+      "whyConfidence": "inferred",
+      "reviewFocus": [
+        "Do the new defaults preserve the behavior existing callers expect?",
+        "Can every terminal transport failure be represented by RequestError?",
+        "Is the retry option safe for every supported HTTP method?"
+      ],
+      "evidence": [
+        "src/api/client.ts:1-29",
+        "PR body: Request policy"
+      ],
+      "dependsOn": [],
+      "changes": [
+        {
+          "id": "contract-client",
+          "path": "src/api/client.ts",
+          "status": "modified",
+          "patch": "diff --git a/src/api/client.ts b/src/api/client.ts\nindex 441fcaa..f905b2a 100644\n--- a/src/api/client.ts\n+++ b/src/api/client.ts\n@@ -1,3 +1,18 @@\n-export async function request(url: string) {\n-  return fetch(url);\n+export type RequestOptions = {\n+  url: string;\n+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';\n+  timeoutMs?: number;\n+  retries?: number;\n+};\n+\n+export type RequestError = {\n+  status: number;\n+  message: string;\n+  cause?: unknown;\n+};\n+\n+export async function request(options: RequestOptions) {\n+  const { url, method = 'GET', timeoutMs = 5000, retries = 2 } = options;\n+  return fetch(url, { method, signal: AbortSignal.timeout(timeoutMs) });\n }\n"
+        },
+        {
+          "id": "contract-package",
+          "path": "package.json",
+          "status": "modified",
+          "patch": "diff --git a/package.json b/package.json\nindex 7a30e5b..150f8c0 100644\n--- a/package.json\n+++ b/package.json\n@@ -18,6 +18,7 @@\n   \"dependencies\": {\n+    \"abort-controller\": \"^3.0.0\",\n     \"react\": \"^19.0.0\"\n   }\n"
+        }
+      ]
+    },
+    {
+      "id": "request-lifecycle",
+      "order": 2,
+      "title": "Wire the request lifecycle",
+      "summary": "Moves the hook onto the shared client while preserving its UI-facing state machine.",
+      "whatChanged": "useRequest delegates transport work to the new client and only publishes data from the latest invocation.",
+      "whyThisApproach": "Keeping sequencing in the hook prevents an older retrying request from overwriting the result of a newer one.",
+      "whyConfidence": "confirmed",
+      "reviewFocus": [
+        "Does the request ID guard cover both successful and failed stale requests?",
+        "Is cancellation still observable by consumers?",
+        "Can retry delay keep the hook in a loading state indefinitely?"
+      ],
+      "evidence": [
+        "src/hooks/useRequest.ts:8-34",
+        "tests/request.test.ts:54-81"
+      ],
+      "dependsOn": [
+        "request-contract"
+      ],
+      "changes": [
+        {
+          "id": "lifecycle-hook",
+          "path": "src/hooks/useRequest.ts",
+          "status": "modified",
+          "patch": "diff --git a/src/hooks/useRequest.ts b/src/hooks/useRequest.ts\nindex 6ea1770..792e3c2 100644\n--- a/src/hooks/useRequest.ts\n+++ b/src/hooks/useRequest.ts\n@@ -1,5 +1,6 @@\n import { useCallback, useRef, useState } from 'react';\n+import { request, type RequestOptions } from '../api/client';\n \n-export function useRequest(url: string) {\n+export function useRequest(options: RequestOptions) {\n   const currentRequest = useRef(0);\n   const [state, setState] = useState({ status: 'idle' });\n@@ -8,7 +9,7 @@ export function useRequest(url: string) {\n     const requestId = ++currentRequest.current;\n     setState({ status: 'loading' });\n \n-    const response = await fetch(url);\n+    const response = await request(options);\n     if (requestId === currentRequest.current) {\n       setState({ status: 'success', data: await response.json() });\n     }\n",
+          "annotations": [
+            {
+              "id": "latest-request",
+              "side": "additions",
+              "lineNumber": 13,
+              "kind": "intent",
+              "confidence": "inferred",
+              "title": "Keep the latest request in control",
+              "body": "The request ID comparison appears intended to prevent an older invocation from publishing success over a newer request. Verify whether a new request can start during the awaited response decoding."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "failure-proof",
+      "order": 3,
+      "title": "Prove the failure path",
+      "summary": "Makes timeout exhaustion and stale-response behavior explicit at the test boundary.",
+      "whatChanged": "The test suite adds deterministic cases for retry exhaustion and for a superseded request resolving late.",
+      "whyThisApproach": "The tests assert externally visible outcomes instead of internal retry-loop steps, leaving room to change the transport implementation.",
+      "whyConfidence": "inferred",
+      "reviewFocus": [
+        "Do the fake timers model production scheduling accurately?",
+        "Would the tests catch an extra network attempt?",
+        "Is the original failure retained as the error cause?"
+      ],
+      "evidence": [
+        "tests/request.test.ts:41-96"
+      ],
+      "dependsOn": [
+        "request-contract",
+        "request-lifecycle"
+      ],
+      "changes": [
+        {
+          "id": "failure-tests",
+          "path": "tests/request.test.ts",
+          "status": "modified",
+          "patch": "diff --git a/tests/request.test.ts b/tests/request.test.ts\nindex 24ec8bc..2beee1d 100644\n--- a/tests/request.test.ts\n+++ b/tests/request.test.ts\n@@ -35,4 +35,17 @@ describe('request', () => {\n     expect(result.status).toBe(200);\n   });\n+\n+  it('returns the terminal failure after retries are exhausted', async () => {\n+    transport.mockRejectedValue(new Error('offline'));\n+\n+    await expect(request({ url: '/health', retries: 2 })).rejects.toMatchObject({\n+      message: 'Request failed after 3 attempts',\n+      cause: expect.any(Error),\n+    });\n+\n+    expect(transport).toHaveBeenCalledTimes(3);\n+  });\n });\n"
+        }
+      ]
+    }
+  ]
+}

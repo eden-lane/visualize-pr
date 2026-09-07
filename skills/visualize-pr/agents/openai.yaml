@@ -1,0 +1,4 @@
+interface:
+  display_name: "Visualize PR"
+  short_description: "Map a pull request into reviewable parts"
+  default_prompt: "Use $visualize-pr to turn the selected pull request into a logical, visual review map."

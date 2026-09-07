@@ -1,0 +1,28 @@
+name: Build release binaries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: cd skills/visualize-pr/assets/review-app && bun install --frozen-lockfile
+      - run: bun scripts/check.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visualize-pr-${{ runner.os }}-${{ runner.arch }}
+          path: dist/*
+          if-no-files-found: error
