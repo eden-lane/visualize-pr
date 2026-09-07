@@ -2,6 +2,22 @@
 
 Turn a pull request into an interactive review map, grouped by what the change does. Each part explains what changed, why the implementation takes that shape, and what a reviewer should verify beside the relevant diffs.
 
+## Install the skill
+
+Install with the Skills CLI:
+
+```bash
+npx skills add eden-lane/visualize-pr --skill visualize-pr
+```
+
+To install from a local checkout, run:
+
+```bash
+npx skills add . --skill visualize-pr
+```
+
+Alternatively, copy `skills/visualize-pr/` directly into your agent's skills directory. The Skills CLI is an optional installation method, not a dependency of the generator. Codex display metadata is included; the core instructions follow the Agent Skills format.
+
 A prebuilt generator turns review JSON into a standalone local executable. **Generating and opening reviews requires no Bun, Node.js, Python, package manager, or `node_modules` installation.**
 
 <picture>
@@ -24,22 +40,6 @@ A prebuilt generator turns review JSON into a standalone local executable. **Gen
 This is an aid to review, not a correctness or security verdict. Generated executables contain the supplied PR code and explanations; share them with the same care as the source repository.
 
 Click a diff line number to add a comment. Drag across line numbers or Shift-click another number to select an inclusive range on the same diff side. Saved comments have Edit and Delete controls. Once a comment exists, the floating **Copy instructions for agent** button copies all your comments across files and tabs. Comments remain available while the page is open; reloading or closing it clears them. Generated notes are not included in the copied instructions.
-
-## Install the skill
-
-Using an existing Skills CLI installation, from this checkout:
-
-```bash
-npx skills add . --skill visualize-pr
-```
-
-After publication, replace `OWNER` with the GitHub owner:
-
-```bash
-npx skills add OWNER/visualize-pr --skill visualize-pr
-```
-
-Alternatively, copy `skills/visualize-pr/` directly into your agent's skills directory. The Skills CLI is an optional installation method, not a dependency of the generator. Codex display metadata is included; the core instructions follow the Agent Skills format.
 
 ## Use
 
